@@ -1,150 +1,172 @@
-# Day 1 — Explainer
+# explainer.md
 
-**Question answered:** Does position bias in LLM-as-judge affect a single-response
-rubric judge the same way it affects pairwise judges, and how do I detect it
-in my held-out eval data?
-**Written for:** Meseret Bolled
+**Explainer:** Meseret Bolled
+**Asker:** Gashaw Bekele
+**Topic area:** Inference-time mechanics — LoRA adapter serving
 **Date:** 2026-05-04
 
 ---
 
-## Introduction
+## 1. The Forward-Pass Arithmetic: Merged vs Unmerged
 
-Meseret's `TONE_JUDGE_PROMPT` in `scoring_evaluator.py` presents 5 tone
-markers in a fixed order and asks Qwen3 for a binary 0/1 on each. Her
-`methodology_rationale.md` defends the judge by citing cross-family evaluation
-(different model from the agent). That defence is correct for **self-preference
-bias** — but it says nothing about **position bias**, which is a completely
-separate failure mode. The question is whether the fixed order
-`direct → grounded → honest → professional → non_condescending` systematically
-inflates the first criteria over the last, and whether that distortion touches
-the +25.4% Delta A lift figure.
+A LoRA adapter adds two low-rank matrices — **B** (d × r) and **A** (r × k) —
+to a frozen base weight matrix **W** (d × k). During training, the effective
+weight is:
 
----
-
-## The Load-Bearing Mechanism
-
-Position bias in LLM judges comes from how autoregressive models generate
-tokens. Each output token is conditioned on all prior tokens. When a judge
-scores criterion 1 (`direct`), it has only the prompt as context. When it
-scores criterion 5 (`non_condescending`), it has already generated four
-scores — and those prior scores act as an implicit anchor. Two effects follow:
-
-**Primacy effect:** Criteria listed first receive more "fresh" attention from
-the model. The prompt tokens for criterion 1 are closer to the start of the
-context and carry higher attention weights in early layers than criterion 5,
-which is buried deeper.
-
-**Consistency pressure:** After the model emits `"direct": 1`, it is under
-implicit pressure to be consistent. A generous first score raises the baseline
-for subsequent scores — not because the email got better, but because the
-model's prior output now shapes its next output.
-
-**Key distinction from pairwise bias:** In pairwise judges (A vs B), position
-bias means the judge favours whichever response appears first in the prompt.
-In a rubric judge like Meseret's, the bias is **inter-criteria**: criterion
-order within a single prompt affects relative pass rates across criteria —
-not which response wins.
-
-This means using a different model family (Qwen3 vs the agent's backbone)
-does **not** mitigate position bias. Cross-family evaluation prevents the judge
-from preferring outputs that stylistically match its own training distribution.
-It does nothing about the order in which criteria are presented.
-
----
-
-## Show It
-
-The detection test is simple: re-run the tone judge on the same 52 held-out
-outputs with the criteria order **reversed** (`non_condescending → professional
-→ honest → grounded → direct`) and compare per-criterion pass rates.
-
-```python
-import json
-from pathlib import Path
-from collections import defaultdict
-
-# Load held-out results (assume each result has per-criterion tone scores)
-results_path = Path("results/ablation_harness_report.json")
-data = json.loads(results_path.read_text())
-
-# Simulate: original order vs reversed order pass rates
-# In practice, re-run scoring_evaluator.py with reversed TONE_MARKERS list
-
-TONE_MARKERS_ORIGINAL = ["direct", "grounded", "honest", "professional", "non_condescending"]
-TONE_MARKERS_REVERSED = list(reversed(TONE_MARKERS_ORIGINAL))
-
-# If you have per-criterion scores saved, compare pass rates:
-def pass_rate_by_criterion(results, marker_order):
-    counts = defaultdict(lambda: {"pass": 0, "total": 0})
-    for r in results:
-        for dim in r.get("dimensions", []):
-            if dim["dimension"] == "tone_compliance":
-                evidence = dim.get("evidence", "")
-                for marker in marker_order:
-                    # parse "direct:1" style evidence string
-                    if f"{marker}:1" in evidence:
-                        counts[marker]["pass"] += 1
-                    counts[marker]["total"] += 1
-    return {k: v["pass"] / v["total"] for k, v in counts.items() if v["total"] > 0}
-
-# Compare: if direct pass rate drops when listed last, position bias is present
-original_rates = pass_rate_by_criterion(data["detailed_logs"]["delta_sft_trained"],
-                                         TONE_MARKERS_ORIGINAL)
-print("Original order pass rates:", original_rates)
-
-# Red flag threshold: > 8 percentage point gap between first and last criterion
-# on the same set of emails indicates position bias is material
-first = list(original_rates.values())[0]
-last  = list(original_rates.values())[-1]
-print(f"First-to-last gap: {abs(first - last):.2%}")
-print("Position bias likely" if abs(first - last) > 0.08 else "Position bias not detected")
+```
+W_eff = W + (α/r) × B × A
 ```
 
-If the gap between `direct` (first) and `non_condescending` (last) is
-consistently > 8 pp across runs, rotate the criteria order and average the two
-runs. If the gap is < 5 pp, disclose it as a known limitation and move on —
-the effect is below the noise floor of a 52-task evaluation.
+where `α` is the LoRA scaling factor and `r` is the rank. At inference time
+there are two ways to apply this:
+
+**Unmerged (dynamic application)**
+The adapter branch is computed separately on every forward pass:
+
+```
+h = W·x + (α/r) · B · A · x
+```
+
+The base weights **W** are never modified. The LoRA branch runs as a parallel
+path and its output is added to the base output at each layer.
+
+**Merged (permanent fusion)**
+Before generation starts, the adapter is fused once into the base weights:
+
+```
+W' = W + (α/r) × B × A      ← done once, offline
+h  = W' · x                  ← standard forward pass, no extra branch
+```
+
+From the model's perspective, the merged model looks identical to a
+fine-tuned base model — the LoRA matrices no longer exist as separate objects.
+
+**Are they mathematically identical?**
+Algebraically: yes. `W'·x = W·x + (α/r)·B·A·x` by the distributive law.
+In practice: almost always yes, but with three known exception conditions
+covered in the next section.
 
 ---
 
-## Adjacent Concepts
+## 2. Conditions Where the Two Modes Can Diverge
 
-**Length bias** is the other major rubric-judge failure mode. Longer outputs
-score higher on `grounded` and `professional` simply because more words give
-the model more signal to latch onto. Check if Meseret's high-scoring emails
-are systematically longer than low-scoring ones — a scatter plot of word count
-vs tone score will reveal this in one minute.
+### 2a. Floating-point rounding (fp16/bf16)
 
-**Self-preference bias** is what the cross-family defence actually addresses:
-a Qwen3 judge would give inflated tone scores to outputs that sound like Qwen3.
-Using a different family breaks this. Meseret's methodology is correct on this
-point.
+fp16 has ~3 decimal digits of precision; bf16 has ~2.5. When merging,
+the addition `W + (α/r)·BA` is computed once at high precision and stored.
+At runtime, `W'·x` involves one matrix multiply.
 
-**Calibration vs discrimination:** Even a biased judge can be useful if the
-bias is *consistent across conditions*. If position bias inflates `direct`
-equally for the base model and the trained model, the *relative* lift
-(+25.4%) is unaffected even though the absolute scores are inflated. The
-threat is only if the trained model's outputs happen to front-load the criteria
-that benefit from primacy — which is worth a one-off audit.
+In unmerged mode, `W·x` and `(α/r)·B·A·x` are computed separately and then
+added. Two matrix multiplies accumulate rounding errors independently before
+summation. The numerical gap is typically < 1e-3 in logit space — below the
+threshold that changes top-k token selection — but it is non-zero. For a
+0.5B model with r=16 this gap is negligible; it becomes material only on
+larger ranks or accumulated across many layers with accumulated residuals.
+
+### 2b. Scaling factor misapplication (most common real-world bug)
+
+The scale `α/r` must be applied identically in both paths. A common
+implementation error is to apply it during the merge step but not during
+dynamic unmerged inference (or vice versa). This produces a systematic
+output shift — not a floating-point error but a wrong answer. Always verify
+the PEFT library version applies `lora_alpha / r` consistently in both code
+paths.
+
+### 2c. Dropout left on at inference
+
+LoRA uses dropout on the A matrix during training. At inference, dropout
+must be disabled (`model.eval()`). If `model.eval()` is not called before
+generation in unmerged mode, the A branch randomly zeroes activations,
+making the adapter non-deterministic and partially invisible. Merged mode
+is immune because the adapter no longer exists as a separate dropout-bearing
+module. This is the most likely silent failure mode for an adapter that
+"appears to have no effect" after deployment.
 
 ---
 
-## Practical FDE Rule
+## 3. Code Example: Logit Comparison
 
-1. **Always check criterion pass rate variance** before reporting rubric judge
-   results. A healthy rubric has < 10 pp spread across criterion pass rates on
-   the same document set.
-2. **Rotate and average** when position bias is detected: run the judge twice
-   with reversed criterion order and average the scores. Two API calls per
-   document, bias mostly cancelled.
-3. **Disclose, don't hide.** If you ship without rotation, add one sentence to
-   the methodology: "Criteria order is fixed; position bias has not been
-   audited and may inflate pass rates for criteria listed first."
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import PeftModel
+import torch
+
+BASE_ID    = "unsloth/Qwen2.5-0.5B-Instruct"
+ADAPTER_ID = "gashawbekele/tenacious-bench-lora-path-a"
+PROMPT     = "Draft a one-sentence outreach for a prospect who posted 8 ML roles."
+
+tokenizer = AutoTokenizer.from_pretrained(BASE_ID)
+inputs    = tokenizer(PROMPT, return_tensors="pt")
+
+# ── Unmerged inference ──────────────────────────────────────────────────────
+base_model      = AutoModelForCausalLM.from_pretrained(BASE_ID, torch_dtype=torch.float16)
+model_unmerged  = PeftModel.from_pretrained(base_model, ADAPTER_ID)
+model_unmerged.eval()                          # ← CRITICAL: disables dropout
+
+with torch.no_grad():
+    logits_unmerged = model_unmerged(**inputs).logits
+
+# ── Merged inference ────────────────────────────────────────────────────────
+model_merged = model_unmerged.merge_and_unload()   # fuses B×A into W, removes PEFT wrappers
+model_merged.eval()
+
+with torch.no_grad():
+    logits_merged = model_merged(**inputs).logits
+
+# ── Compare ─────────────────────────────────────────────────────────────────
+max_diff  = (logits_merged - logits_unmerged).abs().max().item()
+top1_same = (logits_merged.argmax(-1) == logits_unmerged.argmax(-1)).all().item()
+
+print(f"Max logit difference : {max_diff:.6f}")   # healthy: < 1e-3
+print(f"Top-1 token matches  : {top1_same}")       # healthy: True
+```
+
+If `top1_same` is `False` or `max_diff` > 0.01, check: (1) was `eval()` called
+before both forward passes, (2) is the same `lora_alpha` / `r` being used,
+(3) are both tensors on the same device and dtype.
 
 ---
 
-## Sources
+## 4. Practical FDE Rule
 
-- Zheng et al. (2023), "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena" — Section 4.2 covers position bias in pairwise judges; the inter-criteria analogue follows directly from the same attention-weight argument.
-- Wang et al. (2023), "Large Language Models are not Fair Evaluators" — demonstrates primacy and recency effects in rubric-style evaluation and proposes the rotation-and-average mitigation.
+**Merge when:**
+- Serving a single adapter at scale and latency matters
+- The adapter is stable (no more A/B testing or hot-swapping)
+- Memory is constrained — merged model = base model size, no extra B/A matrices
+
+**Keep unmerged when:**
+- Hot-swapping adapters across multiple clients on one GPU
+- Still A/B testing the adapter against baseline or prompt-engineering
+- Running the logit comparison above to verify the adapter is active
+
+**If an adapter appears to have no effect after deployment — check in this order:**
+1. Was `model.eval()` called? (dropout check)
+2. Print `lora_alpha` and `r` — confirm `α/r` scaling matches training config
+3. Run the logit comparison above — if `max_diff` ≈ 0 at all positions the
+   adapter weights are likely zero-initialised and training did not save
+4. Check the adapter was loaded to the same device and dtype as the base model
+
+**On Gashaw's specific null delta (Delta A = 0.00):**
+The serving mode is not the primary cause. The `methodology_rationale.md`
+diagnosis is correct: a 0.5B backbone attention-copies "bench" from the
+input `bench_summary` field because the token appears in the prompt and
+the model's capacity is insufficient to suppress it via weight updates
+alone. The adapter learned concision (−18% length, loss 3.08 → 0.42) but
+could not override a strong attention signal from a token present in the
+context window. The serving-mode check is still worth running as a
+second-order verification, but it will not move the rubric score until the
+backbone capacity bottleneck is resolved (e.g., Qwen2.5-1.5B in v0.2).
+
+---
+
+## Summary
+
+| | Merged | Unmerged |
+|---|---|---|
+| **Arithmetic** | W' = W + (α/r)BA, then h = W'x | h = Wx + (α/r)BAx |
+| **Logit difference** | — | < 1e-3 (fp16 rounding only) |
+| **Dropout risk** | None — no adapter module | Yes — must call `.eval()` |
+| **Latency** | Same as base model | Slightly higher (extra matmul) |
+| **Memory** | Same as base model | Base + B + A matrices |
+| **Best for** | Production single-adapter serving | Dev, A/B testing, multi-adapter |
+| **Silent failure mode** | Scaling bug at merge time | `eval()` not called |
