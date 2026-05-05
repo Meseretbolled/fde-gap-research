@@ -49,7 +49,7 @@ By the end of the week: 5 gaps I named, 5 gaps I explained, 5 blog posts, 5 twee
 - Day 5: TBD
 
 ### Tweet Threads
-- Day 1: TBD
+- Day 1: [Merged vs Unmerged LoRA at Inference](https://x.com/Meseret_Bolled/status/2051718207040323678?s=20)
 - Day 2: TBD
 - Day 3: TBD
 - Day 4: TBD
