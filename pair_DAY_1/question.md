@@ -9,81 +9,80 @@
 
 ## The Question
 
-In `tenacious-bench/src/evaluation/scoring_evaluator.py` (lines 66–82),
-my `TONE_JUDGE_PROMPT` presents 5 tone markers in a **fixed order** and
-asks Qwen3 to return a binary 0 or 1 for each:
+In my Week 11 benchmark, I used an LLM judge to score sales emails on
+5 tone criteria presented in a fixed order. The judge returns a binary
+pass or fail for each criterion, and an email must pass 4 out of 5
+to be considered tone-compliant.
 
-```
-1. direct
-2. grounded
-3. honest
-4. professional
-5. non_condescending
-```
+My evaluation methodology defends the judge on one ground: using a
+different model family from the agent being evaluated prevents the judge
+from favouring outputs that stylistically match its own training.
 
-My `methodology_rationale.md` defends the judge with one argument:
-using a **different model family** from the agent being evaluated
-prevents self-preference leakage. That defence is cited as correct.
-
-**My specific gap:**
+**The gap I cannot close:**
 I do not know whether **position bias** — the tendency of an LLM judge
-to inflate scores for criteria listed earlier in the prompt — applies
+to inflate scores for criteria presented earlier in the prompt — applies
 to a single-response rubric judge the same way it applies to pairwise
-comparison judges. In pairwise evaluation, position bias means the judge
-favours whichever response appears first. But in my setup there is only
-one response, and the judge is scoring 5 separate criteria sequentially.
+judges. In pairwise evaluation, position bias means the judge favours
+whichever response appears first. My setup is different: one response,
+five criteria scored sequentially by the same model in one pass.
 
-The mechanism I cannot explain: does the order in which I list criteria
-(direct first, non_condescending last) cause the judge to systematically
-give higher pass rates to `direct` and `grounded` than to `non_condescending`
-— not because the emails are actually better on those criteria, but because
-of how the judge's autoregressive generation works?
+Does the fixed order in which I present the five criteria cause the judge
+to systematically give higher pass rates to the criteria listed first —
+not because the emails are genuinely better on those criteria, but because
+of how the model generates its scores one token at a time?
 
-And if that bias exists: how would I detect it using my existing
-52 held-out task results?
+And if that bias exists: how would I detect it using the held-out
+evaluation results I already have?
 
 ---
 
 ## What I Already Know
 
-- **Cross-family defence is correct but incomplete.** Using Qwen3 to judge
-  a Qwen2.5-based agent prevents the judge from preferring outputs that
-  stylistically match its own training. This addresses self-preference bias.
-  It says nothing about position bias.
+- **The cross-family defence addresses a different problem.** It prevents
+  the judge from preferring outputs that sound like itself. It says nothing
+  about whether criteria listed first in a prompt are scored more generously
+  than criteria listed last.
 
-- **The prompt is fixed-order.** My `TONE_JUDGE_PROMPT` always presents
-  criteria in the same sequence. I have never rotated the order or tested
-  whether reversing it changes the scores.
+- **The prompt order has never been tested.** I have always presented the
+  criteria in the same fixed sequence. I have never rotated the order or
+  checked whether reversing it changes the scores.
 
-- **Tone compliance contributes 15% of the total score** (weight 0.15 in
-  `DIMENSION_WEIGHTS`). My dashboard shows a +25.4% relative improvement
-  (0.751 → 0.941 mean score) across 52 held-out tasks. If position bias
-  is inflating the first two tone criteria, some of that lift is an
-  artifact of prompt ordering rather than genuine model improvement.
+- **The tone dimension contributes 15% of the total benchmark score.**
+  My benchmark reports a +25.4% relative improvement for the trained model
+  over the baseline across 52 held-out tasks. If position bias is inflating
+  the first two criteria, some of that lift is an artifact of prompt
+  ordering rather than genuine model improvement.
 
-- **I use `passed = total >= 4`** (line 368), meaning an email needs 4
-  out of 5 tone criteria to pass. A bias that systematically inflates
-  the first two criteria could push borderline emails over that threshold.
+- **The pass threshold amplifies the effect.** Because an email needs
+  4 out of 5 tone criteria to pass, a bias that inflates even one early
+  criterion could push borderline emails over the threshold that would
+  otherwise fail.
 
 ---
 
 ## Why This Gap Matters for FDE Work
 
-This is not only my situation. Two common FDE evaluation scenarios depend
-on understanding this:
+1. **Reporting benchmark results to a client.** When I present a rubric-judge
+   score as evidence of model improvement, I am implicitly claiming the judge
+   is unbiased. If position bias is present and I have not audited for it,
+   I am overstating confidence in the result. A client engineer who asks
+   "how do you know the judge isn't inflating early criteria?" deserves a
+   real answer, not a citation of a different bias mitigation.
 
-1. **Reporting benchmark results to a client.** Every time I present a
-   rubric-judge score as evidence of model improvement, I am implicitly
-   claiming the judge is unbiased. If position bias is present and I have
-   not audited for it, I am overstating confidence in the result. A client
-   engineer who asks "how do you know the judge isn't inflating early
-   criteria?" deserves a real answer.
+2. **Designing rubric prompts for new evaluation benchmarks.** Every time
+   I build an evaluation for a new client engagement, I will face the same
+   design choice: what order do I list the criteria? Without understanding
+   the mechanism, I will make that choice arbitrarily and embed an
+   unexamined systematic error into every benchmark I ship.
 
-2. **Designing rubric prompts for new benchmarks.** If I build another
-   evaluation benchmark for a different client engagement, I will face the
-   same design choice: what order do I list criteria? Without understanding
-   position bias mechanics I will make that choice arbitrarily, and my
-   benchmark will have an unexamined systematic error baked in.
+---
+
+## Connection to Existing Work
+
+**Artifact:** `tenacious-bench` — the tone judge prompt inside the
+automated scoring evaluator, which presents 5 tone markers in a fixed
+sequence and feeds into the reported +25.4% Delta A lift on the held-out
+evaluation set.
 
 ---
 
@@ -92,23 +91,20 @@ on understanding this:
 Please cover:
 
 1. The mechanism of position bias in a **single-response rubric judge**
-   specifically — not pairwise. How does autoregressive generation cause
-   criteria listed first to receive different treatment than criteria listed
-   last? Name the attention or token-generation dynamic that drives it.
+   specifically — not pairwise. How does the autoregressive generation
+   process cause criteria listed first to be scored differently than
+   criteria listed last?
 
-2. Whether my cross-family defence (`methodology_rationale.md`) addresses
-   position bias or only self-preference bias — and why the two are
-   distinct failure modes.
+2. Whether the cross-family defence addresses position bias or only
+   self-preference bias — and why the two are distinct failure modes
+   that require different mitigations.
 
-3. A minimal code example or audit procedure I can run on my existing
-   52 held-out results to detect whether position bias is present in
-   my `TONE_JUDGE_PROMPT`. What would a positive signal look like in the
-   data? What threshold distinguishes "material bias" from "noise"?
+3. A detection method I can apply to my existing held-out results to
+   check whether position bias is present. What signal in the data would
+   confirm it, and what threshold separates material bias from noise?
 
-4. The practical fix and disclosure rule: when should I rotate criteria
-   order and re-run, and when is it sufficient to disclose position bias
-   as a named limitation without re-running?
+4. The practical rule: when should I rotate criteria order and re-run,
+   and when is disclosure sufficient without re-running?
 
-**Out of scope:** pairwise judge position bias (A vs B ordering), length
-bias, self-preference bias, multi-model judge ensembles — focus only on
-criterion-order effects in a single-response rubric judge.
+**Out of scope:** pairwise judge position bias, length bias,
+self-preference bias, multi-model judge ensembles.

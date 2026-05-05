@@ -1,9 +1,9 @@
 # explainer.md
 
-**Explainer:** Meseret Bolled
-**Asker:** Gashaw Bekele
-**Topic area:** Inference-time mechanics — LoRA adapter serving
-**Date:** 2026-05-04
+**Explainer:** Meseret  
+**Asker:** Gashaw Bekele  
+**Topic area:** Inference-time mechanics — LoRA adapter serving  
+**Date:** 2026-05-04  
 
 ---
 
@@ -20,7 +20,7 @@ W_eff = W + (α/r) × B × A
 where `α` is the LoRA scaling factor and `r` is the rank. At inference time
 there are two ways to apply this:
 
-**Unmerged (dynamic application)**
+**Unmerged (dynamic application)**  
 The adapter branch is computed separately on every forward pass:
 
 ```
@@ -30,7 +30,7 @@ h = W·x + (α/r) · B · A · x
 The base weights **W** are never modified. The LoRA branch runs as a parallel
 path and its output is added to the base output at each layer.
 
-**Merged (permanent fusion)**
+**Merged (permanent fusion)**  
 Before generation starts, the adapter is fused once into the base weights:
 
 ```
@@ -41,8 +41,8 @@ h  = W' · x                  ← standard forward pass, no extra branch
 From the model's perspective, the merged model looks identical to a
 fine-tuned base model — the LoRA matrices no longer exist as separate objects.
 
-**Are they mathematically identical?**
-Algebraically: yes. `W'·x = W·x + (α/r)·B·A·x` by the distributive law.
+**Are they mathematically identical?**  
+Algebraically: yes. `W'·x = W·x + (α/r)·B·A·x` by the distributive law.  
 In practice: almost always yes, but with three known exception conditions
 covered in the next section.
 
@@ -146,7 +146,7 @@ before both forward passes, (2) is the same `lora_alpha` / `r` being used,
    adapter weights are likely zero-initialised and training did not save
 4. Check the adapter was loaded to the same device and dtype as the base model
 
-**On Gashaw's specific null delta (Delta A = 0.00):**
+**On Gashaw's specific null delta (Delta A = 0.00):**  
 The serving mode is not the primary cause. The `methodology_rationale.md`
 diagnosis is correct: a 0.5B backbone attention-copies "bench" from the
 input `bench_summary` field because the token appears in the prompt and
