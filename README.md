@@ -42,7 +42,7 @@ By the end of the week: 5 gaps I named, 5 gaps I explained, 5 blog posts, 5 twee
 ## Public Artifacts
 
 ### Blog Posts
-- Day 1: TBD
+- Day 1: [Merged vs Unmerged LoRA at Inference: When Are They Identical and When Do They Silently Diverge?](https://open.substack.com/pub/meseretbolled/p/merged-vs-unmerged-lora-at-inference?r=33718a&utm_campaign=post-expanded-share&utm_medium=web)
 - Day 2: TBD
 - Day 3: TBD
 - Day 4: TBD
