@@ -19,9 +19,9 @@ Five grounding commits made to my Week 10/11 work as a direct result of gaps clo
 - **Why it matters:** My benchmark's +25.4% lift claim previously implied the judge was fully unbiased. It now discloses a specific, named limitation with an estimated impact and a concrete path to fixing it. A client engineer or hiring manager reviewing the methodology can see the gap was identified and handled honestly, not papered over.
 
 ### Commit 2 — Day 2
-- **Artifact:**
-- **What changed:**
-- **Why it matters:**
+- **Artifact:** `conversion-engine/agent/agent_core/conversation_manager.py` and `README.md`
+- **What changed:** Added an architectural comment above the 10-keyword booking gate labelling it as a Layer 3 scaffold decision (not model tool choice), naming the specific phrases it misses ("let's see what makes sense timing-wise," "I'd be open to a conversation"), and documenting the upgrade path to a `get_booking_link` tool schema with `tool_choice="auto"`. Updated README and method.md to replace "agent-initiated booking" with "Python-gated scaffold routing."
+- **Why it matters:** My Week 10 README described the booking flow as agent-initiated when Python was making every decision before the model was called. A hiring manager or client engineer reading the architecture now sees an honest description of what the system does and a concrete named path to model-driven improvement. The comment also means any future engineer who touches that file understands why the keyword list is not the right fix.
 
 ### Commit 3 — Day 3
 - **Artifact:**

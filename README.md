@@ -20,7 +20,7 @@ By the end of the week: 5 gaps I named, 5 gaps I explained, 5 blog posts, 5 twee
 | Day | Topic | My Question | Explainer I Wrote | Partner |
 |-----|-------|------------|-------------------|---------|
 | 1 | Evaluation & Statistics — LLM-as-judge biases | Does position bias in a single-response rubric judge inflate scores for criteria listed first in `TONE_JUDGE_PROMPT`? | LoRA merged vs unmerged inference serving | Gashaw Bekele |
-| 2 | TBD | TBD | TBD | TBD |
+| 2 | Agent and Tool-Use Internals | My 10-keyword booking gate has a systematic miss rate — would giving the model a `get_booking_link` tool schema catch the phrases my list misses? | Three layers of tool-use failure and how to tell them apart without reading the model's mind (Gersum Asfaw + Hiwot Beyene) | Gersum Asfaw, Hiwot Beyene |
 | 3 | TBD | TBD | TBD | TBD |
 | 4 | TBD | TBD | TBD | TBD |
 | 5 | TBD | TBD | TBD | TBD |
