@@ -46,6 +46,8 @@ See [canonical_list.md](canonical_list.md) for the full annotated list.
 - Wang et al. (2023) — LLM-as-judge position bias
 - Zheng et al. (2023) — MT-Bench and Chatbot Arena judge calibration
 
+**Day 2 blog post:** [My Sales Agent Was Missing Booking Signals — And It Was Never the Model's Fault](https://medium.com/@meseretbolled/my-sales-agent-was-missing-booking-signals-and-it-was-never-the-models-fault-d22102622113)
+
 **Day 2 additions:**
 - OpenAI Function Calling docs — canonical reference for `finish_reason`, `tool_choice` modes, and tool schema format
 - Yao et al. (2023) ReAct — reasoning-action loop and the basis for separating model choice from scaffold execution

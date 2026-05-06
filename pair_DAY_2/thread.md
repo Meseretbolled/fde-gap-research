@@ -58,7 +58,7 @@
 **Tweet 6** — Link to blog
 > Full explainer with A/B measurement script, a 3-layer trace schema, a drift detection function for multi-turn pipelines, and the MCP vs function calling distinction your questions probably need:
 >
-> [Substack link — to be added after publishing]
+> https://medium.com/@meseretbolled/my-sales-agent-was-missing-booking-signals-and-it-was-never-the-models-fault-d22102622113
 >
 > Written for Gersum Asfaw and Hiwot Beyene as part of TRP1 Week 12 paired gap research.
 
