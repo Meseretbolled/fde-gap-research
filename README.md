@@ -32,8 +32,8 @@ By the end of the week: 5 gaps I named, 5 gaps I explained, 5 blog posts, 5 twee
 | Folder | Contents |
 |--------|----------|
 | [pair_DAY_1/](pair_DAY_1/) | question.md · explainer.md · morning_call_summary.md · thread.md · evening_call_summary.md · signoff.md · grounding_commit.md · sources.md |
-| [pair_DAY_2/](pair_DAY_2/) | Same structure — to be filled Day 2 |
-| [pair_DAY_3/](pair_DAY_3/) | Same structure — to be filled Day 3 |
+| [pair_DAY_2/](pair_DAY_2/) | question.md · explainer.md · morning_call_summary.md · thread.md · evening_call_summary.md · signoff.md · grounding_commit.md · sources.md · blog_post.md · hiwot_clarification_reply.md |
+| [pair_DAY_3/](pair_DAY_3/) | question.md · explainer.md · morning_call_summary.md · thread.md · evening_call_summary.md · signoff.md · grounding_commit.md · sources.md |
 | [pair_DAY_4/](pair_DAY_4/) | Same structure — to be filled Day 4 |
 | [pair_DAY_5/](pair_DAY_5/) | Same structure — to be filled Day 5 |
 
