@@ -24,9 +24,9 @@ Five grounding commits made to my Week 10/11 work as a direct result of gaps clo
 - **Why it matters:** My Week 10 README described the booking flow as agent-initiated when Python was making every decision before the model was called. A hiring manager or client engineer reading the architecture now sees an honest description of what the system does and a concrete named path to model-driven improvement. The comment also means any future engineer who touches that file understands why the keyword list is not the right fix.
 
 ### Commit 3 — Day 3
-- **Artifact:**
-- **What changed:**
-- **Why it matters:**
+- **Artifact:** `tenacious-bench/methodology_rationale.md`
+- **What changed:** Added a named limitation paragraph directly below the +0.1904 Delta A figure (95% CI [0.1115, 0.2788], p=0.0000). The paragraph states: the tone compliance dimension (weight 0.15) uses a fixed-order LLM judge known to produce primacy effects; the criterion-rotation agreement audit has not yet been run; until the audit is complete, Delta A should be read as an upper bound on genuine quality improvement with an unknown Goodhart tax. It specifies the exact audit needed (40-pair sample, 5 orderings, majority-vote label vs original label) and the interpretation thresholds: ≥0.90 = defensible with caveat, 0.70–0.90 = material bias warranting disclosure, <0.70 = retrain with rotation before publishing the number. Cites Rafailov et al. (2023) for the DPO label-propagation mechanism and Gao et al. (2023) for the proxy/gold reward divergence.
+- **Why it matters:** My Week 11 methodology previously reported Delta A as the headline evidence of DPO training improvement without disclosing that the label source for one training dimension had a known and unaudited bias. A hiring manager or client engineer reading the document now sees: the number, the uncertainty around it, the specific mechanism that could inflate it, and a concrete path to resolving the inflation. The Goodhart tax is named, not papered over. This is the difference between a benchmark that implies completeness and one that discloses its limits.
 
 ### Commit 4 — Day 4
 - **Artifact:**
