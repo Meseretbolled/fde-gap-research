@@ -3,7 +3,7 @@
 **Week 12 — Knowledge Gap Formulation for Compounding**
 **Author:** Meseret Bolled
 **Program:** TRP1 — Forward-Deployed Engineer Track
-**Portfolio grounded in:** [tenacious-bench](https://github.com/Meseretbolled/Sales-Agent-Evaluation-Bench) (Week 11)
+**Portfolio grounded in:** [tenacious-bench](https://github.com/Meseretbolled/Sales-Agent-Evaluation-Bench) (Week 11) · [conversion-engine](https://github.com/Meseretbolled/Sales-Outreach-Agent) (Week 10)
 
 ---
 
